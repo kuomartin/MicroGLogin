@@ -121,7 +121,7 @@ internal class GmsRedirector(private val xposed: XposedInterface, private val ru
      * 框架內部送出 intent 的地方。app 經 AOT 編譯後，`Intent` 的建構子與 setter 可能被 inline 進 app 的程式碼，
      * 上面的 hook 就攔不到（LINE 實測：identitycredentials、phenotype 直接綁到 Google Play 服務）。
      * `bindService`、`startService`、`startActivity` 最後都經過這裡，在送出前再完整改寫一次。
-     * 新版 Play 服務函式庫綁定的 chimera component 也在這裡拆回原本的 action（見 [GmsRules.unwrapChimeraAction]）。
+     * 新版 Play 服務函式庫綁定的 chimera component 也在這裡拆回原本的 action（見 [GmsRules.chimeraAction]）。
      */
     private fun hookEgress() {
         val hooker = XposedInterface.Hooker { chain ->
@@ -144,8 +144,15 @@ internal class GmsRedirector(private val xposed: XposedInterface, private val ru
     private fun redirect(intent: Intent) {
         val before = intent.toUri(0)
         val data = intent.data
-        rules.unwrapChimeraAction(intent.action, intent.component?.packageName, data?.scheme, data?.schemeSpecificPart)?.let {
-            actionField.set(intent, it)
+        val chimera = rules.chimeraAction(intent.action, intent.component?.packageName, data?.scheme, data?.schemeSpecificPart)
+        if (chimera != null && rules.isPushAction(chimera)) {
+            // 推播留在 Google Play 服務，component 照原樣綁定
+            intent.component?.let { componentField.set(intent, ComponentName(GmsRules.GMS_PACKAGE, it.className)) }
+            if (intent.toUri(0) != before) Log.d("egress $before -> ${intent.toUri(0)}")
+            return
+        }
+        if (chimera != null) {
+            actionField.set(intent, chimera)
             dataField.set(intent, null)
             componentField.set(intent, null)
             packageField.set(intent, GmsRules.GMS_PACKAGE)

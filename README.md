@@ -28,12 +28,16 @@ patch 後的 app 改用 patch 工具的金鑰簽名。Google Play 服務在自�
 |---|---|
 | `com.google.android.gms`、`com.google.android.gsf` 的 package、component、provider authority | MicroG RE |
 | `com.google.android.gms.*` action | 改名為 `app.revanced.android.gms.*` |
-| 推播：`com.google.android.c2dm.*`、`com.google.iid.*` | 留在 Google Play 服務（FCM 不比對呼叫端簽章） |
+| 推播：`com.google.android.c2dm.*`、`com.google.iid.*`、`com.google.android.gms.cloudmessaging.*` | 留在 Google Play 服務（FCM 不比對呼叫端簽章） |
+| 新版 Play 服務函式庫的 chimera bind（`BoundService.START` + `chimera-action:<action>`，直接指定 GMS 的 component） | 拆回原本的 action 再導向 MicroG RE（MicroG RE 沒有這些 component）；推播照原樣留在 Google Play 服務 |
 | `common.account.CHOOSE_ACCOUNT` | 系統帳號選擇器 |
 | `AccountManager.getAuthToken`、`blockingGetAuthToken`，帳號類型 `com.google` | 改用 MicroG RE 的同名帳號（類型由 MicroG RE 的 authenticator 決定），否則 Google Play 服務會以 `UNREGISTERED_ON_API_CONSOLE` 拒絕 |
-| `com.google.android.gms.chimera` provider | 留在 Google Play 服務（MicroG 沒有 Dynamite 模組） |
+| `com.google.android.gms.chimera`、`com.google.android.gms.fonts` provider | 留在 Google Play 服務（MicroG 沒有 Dynamite 模組；字型與簽章無關，導過去會 authority 不符） |
 | 指向 app 自己元件的 intent（例如 `SignInHubActivity`） | 不改 action |
-| Android 14 以上的系統 Credential Manager（實驗） | 對 app 隱藏，讓 androidx 改走 Play 服務實作，再導向 MicroG RE |
+| Android 14 以上的系統 Credential Manager | 對 app 隱藏，讓 androidx 改走 Play 服務實作，再導向 MicroG RE |
+| Google ID 憑證類型 `com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL` | 送往 MicroG RE 時改成它認得的 `app.revanced.android.libraries...`，回傳時改回；MicroG RE 回傳的 Bundle 轉成 Android 14 以上 androidx 讀的 `GetCredentialResponse`／`GetCredentialException` |
+
+intent 的改寫在兩處進行：`Intent` 的建構子與 setter，以及框架送出前的 `ContextImpl.bindServiceCommon`、`startServiceCommon`、`Instrumentation.execStartActivity`。app 經 AOT 編譯後 setter 可能被 inline 而攔不到，送出前的改寫負責補上。
 
 MicroG RE 沒安裝，或 app 看不到它時，模組什麼都不做。
 
@@ -43,7 +47,7 @@ MicroG RE 沒安裝，或 app 看不到它時，模組什麼都不做。
 |---|---|
 | play-services-auth（`GoogleSignInClient`） | 支援 |
 | Identity API（`Identity.getSignInClient`） | 理論上支援，要看 MicroG RE 有沒有實作 |
-| androidx Credential Manager + `googleid`（例如 LINE） | 實驗：靠隱藏系統 Credential Manager。副作用是 app 的 passkey 也改走 MicroG RE |
+| androidx Credential Manager + `googleid`（例如 LINE） | 支援（LINE 26.14.0 實測可取得 ID token）。副作用是 app 的 passkey 也改走 MicroG RE |
 | 網頁 OAuth（Custom Tab） | 不經過 GMS，本來就能用 |
 
 ## 限制

@@ -35,6 +35,7 @@ class GmsRulesTest {
     fun `chimera and unrelated authorities are left alone`() {
         assertNull(rules.redirectAuthority(null))
         assertNull(rules.redirectAuthority("com.google.android.gms.chimera"))
+        assertNull(rules.redirectAuthority("com.google.android.gms.fonts"))
         assertNull(rules.redirectAuthority("com.example.app.provider"))
         assertNull(rules.redirectAuthority("$MICROG_RE.phenotype"))
     }
@@ -56,6 +57,7 @@ class GmsRulesTest {
         assertNull(rules.redirectAction(null))
         assertNull(rules.redirectAction("com.google.android.c2dm.intent.REGISTER"))
         assertNull(rules.redirectAction("com.google.iid.TOKEN_REQUEST"))
+        assertNull(rules.redirectAction("com.google.android.gms.cloudmessaging.service.START"))
         assertNull(rules.redirectAction("com.google.android.gms.common.account.CHOOSE_ACCOUNT"))
         assertNull(rules.redirectAction("$MICROG_RE.auth.GOOGLE_SIGN_IN"))
         assertNull(rules.redirectAction("android.intent.action.VIEW"))
@@ -71,24 +73,37 @@ class GmsRulesTest {
     }
 
     @Test
-    fun `chimera bound service intents unwrap to their action`() {
+    fun `chimera bound service intents reveal their action`() {
         val inner = "com.google.android.gms.identitycredentials.service.START"
-        assertEquals(inner, rules.unwrapChimeraAction(CHIMERA, "com.google.android.gms", "chimera-action", inner))
+        assertEquals(inner, rules.chimeraAction(CHIMERA, "com.google.android.gms", "chimera-action", inner))
+        assertEquals(inner, rules.chimeraAction(CHIMERA, MICROG_RE, "chimera-action", inner))
     }
 
     @Test
-    fun `push, foreign and plain intents are not unwrapped`() {
-        assertNull(rules.unwrapChimeraAction(CHIMERA, "com.google.android.gms", "chimera-action", "com.google.android.c2dm.intent.REGISTER"))
-        assertNull(rules.unwrapChimeraAction(CHIMERA, "com.example.app", "chimera-action", "com.google.android.gms.x.START"))
-        assertNull(rules.unwrapChimeraAction(CHIMERA, "com.google.android.gms", "content", "com.google.android.gms.x.START"))
-        assertNull(rules.unwrapChimeraAction("com.google.android.gms.x.START", "com.google.android.gms", null, null))
-        assertNull(rules.unwrapChimeraAction(CHIMERA, "com.google.android.gms", "chimera-action", ""))
+    fun `foreign and plain intents are not chimera intents`() {
+        assertNull(rules.chimeraAction(CHIMERA, "com.example.app", "chimera-action", "com.google.android.gms.x.START"))
+        assertNull(rules.chimeraAction(CHIMERA, "com.google.android.gms", "content", "com.google.android.gms.x.START"))
+        assertNull(rules.chimeraAction("com.google.android.gms.x.START", "com.google.android.gms", null, null))
+        assertNull(rules.chimeraAction(CHIMERA, "com.google.android.gms", "chimera-action", ""))
+    }
+
+    @Test
+    fun `google id credential type round-trips through the MicroG RE name`() {
+        val type = "com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL"
+        val microG = "app.revanced.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL"
+        assertEquals(microG, rules.toMicroGCredentialType(type))
+        assertEquals(type, rules.fromMicroGCredentialType(microG))
+        assertNull(rules.toMicroGCredentialType(microG))
+        assertNull(rules.fromMicroGCredentialType(type))
+        assertNull(rules.toMicroGCredentialType("androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL"))
+        assertNull(rules.toMicroGCredentialType(null))
     }
 
     @Test
     fun `push actions are recognised`() {
         assertTrue(rules.isPushAction("com.google.android.c2dm.intent.REGISTER"))
         assertTrue(rules.isPushAction("com.google.iid.TOKEN_REQUEST"))
+        assertTrue(rules.isPushAction("com.google.android.gms.cloudmessaging.service.START"))
         assertFalse(rules.isPushAction("com.google.android.gms.auth.GOOGLE_SIGN_IN"))
         assertFalse(rules.isPushAction(null))
     }
