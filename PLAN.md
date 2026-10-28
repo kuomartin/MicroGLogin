@@ -1,6 +1,6 @@
 # MicroGLogin 實作計畫
 
-目標：libxposed API 102 模組。搭配 LSPatch「GMS 替代品」選項（JingMatrix/LSPatch#127），讓 patch 過的任意 app 能經 MicroG RE（`app.revanced.android.gms`）等替代品登入 Google。app 用哪一種登入 API，就照那一種導向，不強制改走其他 API。manifest 的簽章宣告與 C2DM 改名由 LSPatch 在 patch 時寫入，不在本模組範圍。測試機為 Pixel 7a（Android 17）。
+目標：libxposed API 102 模組。搭配 LSPatch「GMS 替代品」選項（JingMatrix/LSPatch#127），讓 patch 過的任意 app 能經 MicroG RE（`app.revanced.android.gms`）等替代品登入 Google。app 用哪一種登入 API，就照那一種導向，不強制改走其他 API。manifest 的簽章宣告與 C2DM 改名由 LSPatch 在 patch 時寫入，不在本模組範圍。測試機為 Pixel 7a（Android 17）與 SM-A217F（Android 12）。
 
 ## 分工
 
@@ -36,6 +36,7 @@
 | 智生活 4.20.2（LSPatch GMS 替代品 + 模組） | play-services-auth（`SignInHubActivity`） | 帳號對話框（`AuthSignInActivity`） | 登入成功；只靠 LSPatch loader 時無法登入 |
 | LINE 26.14.0 | androidx Credential Manager + `GetSignInWithGoogleOption` | 帳號對話框（模組代接） | 取得 ID token，LINE 伺服器回「帳號未連結」（測試帳號本來就沒連結）；取消回到登入頁 |
 | Speedtest | androidx Credential Manager（舊版 androidx） + `GetSignInWithGoogleOption` | 帳號對話框（模組代接） | 對話框出現、取消回到 app；未選帳號（會建立 Speedtest 帳戶） |
+| SM-A217F，Android 12，MicroG RE 7.3.0-dev.2：LINE、Dcard 等 | Android 13 以下：androidx 走 Play 服務實作 | MicroG RE 的畫面 | 使用者實測登入皆正常；LINE 的憑證類型雙向轉換（#11）有生效 |
 
 ## 未驗證的前提與待辦
 
@@ -43,7 +44,6 @@
 |---|---|---|
 | C2DM 改名模式下推播經 MicroG RE 送達 | 智生活目前沿用快取的 FCM token，尚未重新註冊 | 清除智生活資料重新註冊，或等真實推播 |
 | C2DM 未改名模式下 FCM register3 不比對簽章 | 不成立的話推播留 GMS 沒有意義 | LINE（尚未用 GMS 替代品重新 patch）測推播 |
-| #11 只在 Android 13 以下用到，手上沒有 13 以下的機器 | 13 以下的 Credential Manager 登入未驗證 | 有機器時測試 |
 | #11 綁定 MicroG RE 7.2.1 的憑證類型命名 | MicroG RE 改名後要跟著改 | MicroG RE 更新時重測 LINE |
 | #10 依賴 `Activity.dispatchActivityResult`（hidden API）與替代品 `ASSISTED_SIGNIN` 的 extra 名稱 | Android 或 MicroG RE 改版時可能失效 | 改版時重測 LINE |
 | Identity API（`Identity.getSignInClient`）直接呼叫的 app | 理論上由 #5–#7 涵蓋 | 找使用該 API 的 app 測試 |
