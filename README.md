@@ -37,8 +37,8 @@ patch 後的 app 改用 patch 工具的金鑰簽名。Google Play 服務在自�
 | `AccountManager.getAuthToken`、`blockingGetAuthToken`，帳號類型 `com.google` | 改用 MicroG RE 的同名帳號（類型由 MicroG RE 的 authenticator 決定），否則 Google Play 服務會以 `UNREGISTERED_ON_API_CONSOLE` 拒絕 |
 | `com.google.android.gms.chimera`、`com.google.android.gms.fonts` provider | 留在 Google Play 服務（MicroG 沒有 Dynamite 模組；字型與簽章無關，導過去會 authority 不符） |
 | 指向 app 自己元件的 intent（例如 `SignInHubActivity`） | 不改 action |
-| Android 14 以上的系統 Credential Manager | 對 app 隱藏，讓 androidx 改走 Play 服務實作，再導向 MicroG RE |
-| Google ID 憑證類型 `com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL` | 送往替代品時改成它認得的 `<vendor>.android.libraries...`，回傳時改回；MicroG RE 回傳的 Bundle 轉成 Android 14 以上 androidx 讀的 `GetCredentialResponse`／`GetCredentialException` |
+| Android 14 以上，Credential Manager 含 Google ID 選項的請求（`CredentialManager.getCredential`） | 模組在 app 內代接：以呼叫端 Activity 開啟替代品的 `ASSISTED_SIGNIN`（帶 SafeParcel 編碼的 `GoogleSignInOptions`、`GetSignInIntentRequest`），替代品顯示帳號對話框；結果在 `Activity.dispatchActivityResult` 收回，組成 `GetCredentialResponse`。同一請求裡的 passkey、密碼選項捨棄；不含 Google ID 的請求照常交給系統。理由：系統只把 Google ID 請求交給裝在 `/system` 的系統 provider，一般安裝的 MicroG RE 接不到（microg/GmsCore#3694） |
+| Android 13 以下，Google ID 憑證類型 `com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL`（androidx 走 Play 服務的 identitycredentials） | 送往替代品時改成它認得的 `<vendor>.android.libraries...`，回傳時改回；MicroG RE 回傳的 Bundle 轉成 Android 14 以上 androidx 讀的 `GetCredentialResponse`／`GetCredentialException` |
 
 intent 的改寫在兩處進行：`Intent` 的建構子與 setter，以及框架送出前的 `ContextImpl.bindServiceCommon`、`startServiceCommon`、`Instrumentation.execStartActivity`。app 經 AOT 編譯後 setter 可能被 inline 而攔不到，送出前的改寫負責補上。
 
@@ -50,7 +50,7 @@ intent 的改寫在兩處進行：`Intent` 的建構子與 setter，以及框架
 |---|---|
 | play-services-auth（`GoogleSignInClient`） | 支援 |
 | Identity API（`Identity.getSignInClient`） | 理論上支援，要看 MicroG RE 有沒有實作 |
-| androidx Credential Manager + `googleid`（例如 LINE） | 支援（LINE 26.14.0 實測可取得 ID token）。副作用是 app 的 passkey 也改走 MicroG RE |
+| androidx Credential Manager + `googleid`（例如 LINE、Speedtest） | Android 14 以上由模組代接，顯示替代品的帳號對話框（LINE 26.14.0 實測取得 ID token；Speedtest 實測開啟對話框）。`GetGoogleIdOption` 的 `filterByAuthorizedAccounts`、`autoSelectEnabled` 不支援，一律顯示對話框。Android 13 以下未實測 |
 | 網頁 OAuth（Custom Tab） | 不經過 GMS，本來就能用 |
 
 ## 限制
