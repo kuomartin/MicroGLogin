@@ -13,7 +13,7 @@ import java.lang.reflect.Modifier
 import java.util.IdentityHashMap
 
 /**
- * Google ID 憑證類型在 app 與 MicroG RE 之間的改名，規則見 [GmsRules.toMicroGCredentialType]。
+ * Google ID 憑證類型在 app 與 MicroG RE 之間的改名，規則見 [GmsRules.toTargetCredentialType]。
  *
  * - 送出：`com.google.android.gms.identitycredentials.GetCredentialRequest` 建好後，改寫其中 option 的類型。
  *   option 的 class 在 app 裡常被混淆，所以走訪欄位找出值相符的字串。
@@ -35,14 +35,14 @@ internal class CredentialTypeHooks(private val xposed: XposedInterface, private 
         for (ctor in request.declaredConstructors) {
             xposed.hook(ctor).intercept { chain ->
                 val result = chain.proceed()
-                rewrite(chain.thisObject, rules::toMicroGCredentialType, cl)
+                rewrite(chain.thisObject, rules::toTargetCredentialType, cl)
                 result
             }
         }
         val send = ResultReceiver::class.java.getDeclaredMethod("send", Int::class.javaPrimitiveType, Bundle::class.java)
         xposed.hook(send).intercept { chain ->
             val data = chain.getArg(1) as Bundle?
-            rewrite(data, rules::fromMicroGCredentialType, cl)
+            rewrite(data, rules::fromTargetCredentialType, cl)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) data?.let(::convertResults)
             chain.proceed()
         }

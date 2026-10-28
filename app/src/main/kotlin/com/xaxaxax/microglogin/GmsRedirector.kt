@@ -11,7 +11,7 @@ import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Modifier
 
 /**
- * 把 app 對 Google Play 服務的 intent 與 provider 呼叫改指向 MicroG RE，規則見 [GmsRules]。
+ * 把 app 對 Google Play 服務的 intent 與 provider 呼叫改指向替代品（例如 MicroG RE），規則見 [GmsRules]。
  *
  * app 以 patch 工具的金鑰重新簽名，Google Play 服務在比對呼叫端簽章的地方（最明顯的是 Google 登入）會拒絕它；
  * MicroG RE 以自己的 package 回應同樣的請求，並依 patch 時寫入的 `SPOOFED_PACKAGE_SIGNATURE` 向 Google 回報原始簽章。
@@ -145,7 +145,7 @@ internal class GmsRedirector(private val xposed: XposedInterface, private val ru
         val before = intent.toUri(0)
         val data = intent.data
         val chimera = rules.chimeraAction(intent.action, intent.component?.packageName, data?.scheme, data?.schemeSpecificPart)
-        if (chimera != null && rules.isPushAction(chimera)) {
+        if (chimera != null && rules.isKeptPushAction(chimera)) {
             // 推播留在 Google Play 服務，component 照原樣綁定
             intent.component?.let { componentField.set(intent, ComponentName(GmsRules.GMS_PACKAGE, it.className)) }
             if (intent.toUri(0) != before) Log.d("egress $before -> ${intent.toUri(0)}")
@@ -213,15 +213,15 @@ internal class GmsRedirector(private val xposed: XposedInterface, private val ru
         }
     }
 
-    /** 已被導向 MicroG RE 的推播 intent，改回 Google Play 服務。 */
+    /** 已被導向替代品、但要留給 Google Play 服務的推播 intent，改回 Google Play 服務。 */
     private fun keepPushWithGms(intent: Intent) {
-        if (!rules.isPushAction(intent.action)) return
-        if (intent.`package` == GmsRules.MICROG_RE_PACKAGE) {
+        if (!rules.isKeptPushAction(intent.action)) return
+        if (intent.`package` == rules.target) {
             Log.d("keeping push intent with ${GmsRules.GMS_PACKAGE}: ${intent.action}")
             packageField.set(intent, GmsRules.GMS_PACKAGE)
         }
         val cn = intent.component
-        if (cn != null && cn.packageName == GmsRules.MICROG_RE_PACKAGE) {
+        if (cn != null && cn.packageName == rules.target) {
             componentField.set(intent, ComponentName(GmsRules.GMS_PACKAGE, cn.className))
         }
     }

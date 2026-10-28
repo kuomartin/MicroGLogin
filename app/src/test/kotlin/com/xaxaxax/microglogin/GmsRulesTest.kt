@@ -88,24 +88,53 @@ class GmsRulesTest {
     }
 
     @Test
-    fun `google id credential type round-trips through the MicroG RE name`() {
+    fun `google id credential type round-trips through the replacement name`() {
         val type = "com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL"
         val microG = "app.revanced.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL"
-        assertEquals(microG, rules.toMicroGCredentialType(type))
-        assertEquals(type, rules.fromMicroGCredentialType(microG))
-        assertNull(rules.toMicroGCredentialType(microG))
-        assertNull(rules.fromMicroGCredentialType(type))
-        assertNull(rules.toMicroGCredentialType("androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL"))
-        assertNull(rules.toMicroGCredentialType(null))
+        assertEquals(microG, rules.toTargetCredentialType(type))
+        assertEquals(type, rules.fromTargetCredentialType(microG))
+        assertNull(rules.toTargetCredentialType(microG))
+        assertNull(rules.fromTargetCredentialType(type))
+        assertNull(rules.toTargetCredentialType("androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL"))
+        assertNull(rules.toTargetCredentialType(null))
     }
 
     @Test
-    fun `push actions are recognised`() {
-        assertTrue(rules.isPushAction("com.google.android.c2dm.intent.REGISTER"))
-        assertTrue(rules.isPushAction("com.google.iid.TOKEN_REQUEST"))
-        assertTrue(rules.isPushAction("com.google.android.gms.cloudmessaging.service.START"))
-        assertFalse(rules.isPushAction("com.google.android.gms.auth.GOOGLE_SIGN_IN"))
-        assertFalse(rules.isPushAction(null))
+    fun `push actions are kept with Google Play services`() {
+        assertTrue(rules.isKeptPushAction("com.google.android.c2dm.intent.REGISTER"))
+        assertTrue(rules.isKeptPushAction("com.google.iid.TOKEN_REQUEST"))
+        assertTrue(rules.isKeptPushAction("com.google.android.gms.cloudmessaging.service.START"))
+        assertFalse(rules.isKeptPushAction("com.google.android.gms.auth.GOOGLE_SIGN_IN"))
+        assertFalse(rules.isKeptPushAction(null))
+    }
+
+    @Test
+    fun `push goes to the replacement when the loader renamed the C2DM names`() {
+        val loader = GmsRules(selfPackage = "com.example.app", pushStaysWithGms = false)
+        assertFalse(loader.isKeptPushAction("com.google.android.c2dm.intent.REGISTER"))
+        assertFalse(loader.isKeptPushAction("com.google.android.gms.cloudmessaging.service.START"))
+        assertEquals(
+            "$MICROG_RE.cloudmessaging.service.START",
+            loader.redirectAction("com.google.android.gms.cloudmessaging.service.START"),
+        )
+        assertEquals("app.revanced.android.c2dm.intent.REGISTER", loader.redirectAction("com.google.android.c2dm.intent.REGISTER"))
+        assertNull(loader.redirectAction("app.revanced.android.c2dm.intent.REGISTER"))
+    }
+
+    @Test
+    fun `another vendor gets its own namespace`() {
+        val other = GmsRules(selfPackage = "com.example.app", target = "org.example.android.gms")
+        assertEquals("org.example.android.gms", other.redirectPackage("com.google.android.gms"))
+        assertEquals("org.example.android.gms.phenotype", other.redirectAuthority("com.google.android.gms.phenotype"))
+        assertEquals(
+            "org.example.android.gms.auth.GOOGLE_SIGN_IN",
+            other.redirectAction("com.google.android.gms.auth.GOOGLE_SIGN_IN"),
+        )
+        assertEquals(
+            "org.example.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL",
+            other.toTargetCredentialType("com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL"),
+        )
+        assertNull(other.redirectAction("$MICROG_RE.auth.GOOGLE_SIGN_IN"))
     }
 
     @Test
@@ -122,6 +151,23 @@ class GmsRulesTest {
         assertTrue(rules.isSelfTargeted(null, "com.example.app"))
         assertFalse(rules.isSelfTargeted(MICROG_RE, MICROG_RE))
         assertFalse(rules.isSelfTargeted(null, null))
+    }
+
+    @Test
+    fun `a replacement that keeps Google's names only gets the package rewritten`() {
+        val dropIn = GmsRules(selfPackage = "com.example.app", target = "org.example.gms")
+        assertEquals("org.example.gms", dropIn.redirectPackage("com.google.android.gms"))
+        assertNull(dropIn.redirectAuthority("com.google.android.gms.phenotype"))
+        assertNull(dropIn.redirectAction("com.google.android.gms.auth.GOOGLE_SIGN_IN"))
+        assertNull(dropIn.toTargetCredentialType("com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL"))
+    }
+
+    @Test
+    fun `a renamed C2DM permission names its replacement`() {
+        assertEquals(MICROG_RE, GmsRules.c2dmPermissionTarget("app.revanced.android.c2dm.permission.RECEIVE"))
+        assertNull(GmsRules.c2dmPermissionTarget("com.google.android.c2dm.permission.RECEIVE"))
+        assertNull(GmsRules.c2dmPermissionTarget("android.permission.INTERNET"))
+        assertNull(GmsRules.c2dmPermissionTarget(".android.c2dm.permission.RECEIVE"))
     }
 
     private companion object {

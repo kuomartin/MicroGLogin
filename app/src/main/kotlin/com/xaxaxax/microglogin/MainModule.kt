@@ -14,20 +14,29 @@ class MainModule : XposedModule() {
         if (!param.isFirstPackage) return
         Log.attach(this)
         Log.i("framework: $frameworkName $frameworkVersion ($frameworkVersionCode), package: ${param.packageName}")
-        val visible = try {
-            MicroGRe.isVisible()
+        val configured = try {
+            GmsReplacement.renamedC2dmTarget(param.packageName)
         } catch (t: Throwable) {
-            Log.e("failed to look up MicroG RE", t)
+            Log.e("failed to read the app's permissions", t)
+            null
+        }
+        val target = configured ?: GmsRules.MICROG_RE_PACKAGE
+        val visible = try {
+            GmsReplacement.isVisible(target)
+        } catch (t: Throwable) {
+            Log.e("failed to look up $target", t)
             false
         }
         if (!visible) {
-            Log.w("MicroG RE is not installed or not visible to the app (add QUERY_ALL_PACKAGES), GMS redirect disabled")
+            Log.w("$target is not installed or not visible to the app (add QUERY_ALL_PACKAGES), GMS redirect disabled")
             return
         }
+        // patch 工具（LSPatch 的 GMS 替代品選項）已把 manifest 的 C2DM 改名時，推播只能交給替代品
+        Log.i(if (configured != null) "C2DM renamed for $target, pushes go to it" else "redirecting to $target, pushes stay with Google Play services")
         // 每組 hook 各自隔離：其中一組失敗時，其他組照常生效
-        val rules = GmsRules(param.packageName).also { this.rules = it }
+        val rules = GmsRules(param.packageName, target, pushStaysWithGms = configured == null).also { this.rules = it }
         install("GmsRedirect") { GmsRedirector(this, rules).install() }
-        install("AccountManager") { AccountManagerHooks.install(this) }
+        install("AccountManager") { AccountManagerHooks(target).install(this) }
         install("CredentialManager") { CredentialManagerHooks.install(this) }
     }
 
