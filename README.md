@@ -58,6 +58,7 @@ intent 的改寫在兩處進行：`Intent` 的建構子與 setter，以及框架
 - 推播留在 Google Play 服務的模式下，只裝 MicroG RE、沒有 Google Play 服務的裝置收不到推播。
 - Firebase API key 若設了 Android 應用程式限制，app 拿 FCM token 時會被擋（`API_KEY_ANDROID_APP_BLOCKED`）。在 LSPatch 開啟簽章繞過（level 1 以上）就能解決。
 - NPatch 不會寫入 `SPOOFED_PACKAGE_SIGNATURE`，在 NPatch 下仍然無法登入。
+- LSPatch 的「注入 dex」選項會讓本模組載入失敗（`NoSuchMethodError: kotlin.Pair.component1()`）：注入後 loader 拿到的是 app 裡被 R8 刪減過的 Kotlin 標準函式庫。LINE 實測如此，patch 時關閉注入 dex 即可。
 - app 自己的簽章檢查與伺服器端完整性檢查，不在本模組範圍內。
 
 ## 建置
