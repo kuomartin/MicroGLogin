@@ -22,6 +22,7 @@ class MainModule : XposedModule() {
         }
         // 每組 hook 各自隔離：其中一組失敗時，其他組照常生效
         install("GmsRedirect") { GmsRedirector(this, GmsRules(param.packageName)).install() }
+        install("AccountManager") { AccountManagerHooks.install(this) }
         install("CredentialManager") { CredentialManagerHooks.install(this) }
     }
 

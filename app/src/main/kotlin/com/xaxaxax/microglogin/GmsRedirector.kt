@@ -7,6 +7,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import io.github.libxposed.api.XposedInterface
+import java.lang.reflect.Modifier
 
 /**
  * 把 app 對 Google Play 服務的 intent 與 provider 呼叫改指向 MicroG RE，規則見 [GmsRules]。
@@ -180,8 +181,8 @@ internal class GmsRedirector(private val xposed: XposedInterface, private val ru
     }
 
     private fun hookAll(cls: Class<*>, name: String, hooker: XposedInterface.Hooker) {
-        // 個別方法在某些 Android 版本不存在時只記錄，不影響其他 hook
-        val methods = cls.declaredMethods.filter { it.name == name }
+        // 個別方法在某些 Android 版本不存在時只記錄，不影響其他 hook；abstract 方法由具體實作的多載轉呼叫，不需要 hook
+        val methods = cls.declaredMethods.filter { it.name == name && !Modifier.isAbstract(it.modifiers) }
         if (methods.isEmpty()) Log.w("${cls.name}.$name not found")
         for (m in methods) {
             try {

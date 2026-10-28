@@ -17,7 +17,7 @@ patch 後的 app 改用 patch 工具的金鑰簽名。Google Play 服務在自�
 
 ## 安裝
 
-1. 安裝 MicroG RE，並在 MicroG RE 登入 Google 帳號。Google Play 服務保留，推播要靠它。
+1. 安裝 MicroG RE，並在 MicroG RE 登入 Google 帳號。app 要 token 時會用 MicroG RE 裡的同名帳號，所以要登入同一個帳號。Google Play 服務保留，推播要靠它。
 2. 安裝 MicroGLogin APK。
 3. 用 kuomartin/LSPatch patch 目標 app：開啟「MicroG 支援」，模組選 MicroGLogin。整合模式另外加入 `QUERY_ALL_PACKAGES` 權限，app 才看得到 MicroG RE。
 4. 移除原版 app，再安裝 patch 版。簽章不同，無法直接覆蓋安裝。
@@ -30,6 +30,7 @@ patch 後的 app 改用 patch 工具的金鑰簽名。Google Play 服務在自�
 | `com.google.android.gms.*` action | 改名為 `app.revanced.android.gms.*` |
 | 推播：`com.google.android.c2dm.*`、`com.google.iid.*` | 留在 Google Play 服務（FCM 不比對呼叫端簽章） |
 | `common.account.CHOOSE_ACCOUNT` | 系統帳號選擇器 |
+| `AccountManager.getAuthToken`、`blockingGetAuthToken`，帳號類型 `com.google` | 改用 MicroG RE 的同名帳號（類型由 MicroG RE 的 authenticator 決定），否則 Google Play 服務會以 `UNREGISTERED_ON_API_CONSOLE` 拒絕 |
 | `com.google.android.gms.chimera` provider | 留在 Google Play 服務（MicroG 沒有 Dynamite 模組） |
 | 指向 app 自己元件的 intent（例如 `SignInHubActivity`） | 不改 action |
 | Android 14 以上的系統 Credential Manager（實驗） | 對 app 隱藏，讓 androidx 改走 Play 服務實作，再導向 MicroG RE |
