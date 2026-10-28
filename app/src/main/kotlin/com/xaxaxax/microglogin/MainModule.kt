@@ -34,7 +34,7 @@ class MainModule : XposedModule() {
         // patch 工具（LSPatch 的 GMS 替代品選項）已把 manifest 的 C2DM 改名時，推播只能交給替代品
         Log.i(if (configured != null) "C2DM renamed for $target, pushes go to it" else "redirecting to $target, pushes stay with Google Play services")
         // 每組 hook 各自隔離：其中一組失敗時，其他組照常生效
-        val rules = GmsRules(param.packageName, target, pushStaysWithGms = configured == null).also { this.rules = it }
+        val rules = GmsRules(param.packageName, target, pushStaysWithGms = configured == null, declares = GmsReplacement.declarer(target)).also { this.rules = it }
         install("GmsRedirect") { GmsRedirector(this, rules).install() }
         install("AccountManager") { AccountManagerHooks(target).install(this) }
         install("CredentialManager") { CredentialManagerHooks.install(this) }

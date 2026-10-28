@@ -1,9 +1,11 @@
 package com.xaxaxax.microglogin
 
+import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Process
 import java.lang.reflect.Method
+import java.util.concurrent.ConcurrentHashMap
 
 /** 替代品的查詢。`onPackageLoaded` 時還沒有 `Context`，所以直接問 `IPackageManager`。 */
 internal object GmsReplacement {
@@ -30,6 +32,26 @@ internal object GmsReplacement {
         return getPackageInfo.invoke(pm, pkg, zeroFlags(getPackageInfo), userId()) != null
     }
 
+    /**
+     * [target] 是否有元件宣告 [action]（activity、service 或 receiver 任一）。結果快取：每個 action 只查一次。
+     * 查詢用的 intent 會經過本模組的 hook，但 action 已是替代品的名稱、package 已是替代品，不會再被改寫。
+     */
+    fun declarer(target: String): (String) -> Boolean {
+        val cache = ConcurrentHashMap<String, Boolean>()
+        return { action -> cache.getOrPut(action) { resolves(target, action) } }
+    }
+
+    private fun resolves(target: String, action: String): Boolean = runCatching {
+        val pm = packageManager()
+        val intent = Intent(action).setPackage(target)
+        QUERIES.any { name ->
+            val query = pm.javaClass.methods.first { it.name == name && it.parameterTypes.size == 4 }
+            val flags: Any = if (query.parameterTypes[2] == Long::class.javaPrimitiveType) 0L else 0
+            val slice = query.invoke(pm, intent, null, flags, userId()) ?: return@any false
+            (slice.javaClass.getMethod("getList").invoke(slice) as List<*>).isNotEmpty()
+        }
+    }.onFailure { Log.e("failed to resolve $action in $target", it) }.getOrDefault(true)
+
     private fun packageManager(): Any =
         Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)!!
 
@@ -39,5 +61,6 @@ internal object GmsReplacement {
     private fun userId() = Process.myUid() / PER_USER_RANGE
 
     private const val GET_PERMISSIONS = PackageManager.GET_PERMISSIONS
+    private val QUERIES = listOf("queryIntentActivities", "queryIntentServices", "queryIntentReceivers")
     private const val PER_USER_RANGE = 100000
 }

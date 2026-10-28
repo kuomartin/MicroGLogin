@@ -170,6 +170,14 @@ class GmsRulesTest {
         assertNull(GmsRules.c2dmPermissionTarget(".android.c2dm.permission.RECEIVE"))
     }
 
+    @Test
+    fun `actions the replacement only declares under Google's name keep it`() {
+        val declared = setOf("$MICROG_RE.auth.GOOGLE_SIGN_IN")
+        val partial = GmsRules(selfPackage = "com.example.app", declares = { it in declared })
+        assertEquals("$MICROG_RE.auth.GOOGLE_SIGN_IN", partial.redirectAction("com.google.android.gms.auth.GOOGLE_SIGN_IN"))
+        assertNull(partial.redirectAction("com.google.android.gms.ads.identifier.service.START"))
+    }
+
     private companion object {
         const val MICROG_RE = GmsRules.MICROG_RE_PACKAGE
         const val CHIMERA = "com.google.android.chimera.BoundService.START"

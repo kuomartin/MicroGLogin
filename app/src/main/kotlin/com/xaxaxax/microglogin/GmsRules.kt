@@ -3,8 +3,10 @@ package com.xaxaxax.microglogin
 /**
  * 哪些 GMS 目標要改指向替代品。只處理字串，不碰 Android 物件，hook 端負責套用。
  *
- * 替代品是 `<vendor>.android.gms` 形式的 package（例如 MicroG RE 的 `app.revanced.android.gms`），它把 action、provider
- * authority 與憑證類型也改進自己的命名空間，所以這些都要改寫。不是這個形式的替代品沿用 Google 的名稱，只改 package。例外：
+ * 替代品是 `<vendor>.android.gms` 形式的 package（例如 MicroG RE 的 `app.revanced.android.gms`），它把 provider authority
+ * 與憑證類型改進自己的命名空間，所以這些都要改寫。action 則不一定：MicroG RE 7.2.1 大多只宣告改名後的
+ * `<vendor>.android.gms.*`，少數只宣告 Google 原名，所以只在替代品宣告了改名後的 action 時才改（[declares]）。
+ * 不是 `<vendor>.android.gms` 形式的替代品沿用 Google 的名稱，只改 package。例外：
  * - 推播：[pushStaysWithGms] 為 true 時（app 的 manifest 保留 Google 的 C2DM 名稱），`com.google.android.c2dm.*`、
  *   `com.google.iid.*`、`com.google.android.gms.cloudmessaging.*` 留給 Google Play 服務，FCM 不比對呼叫端簽章。
  *   為 false 時（patch 工具已把 manifest 的 C2DM 改名），推播與其他呼叫一樣交給替代品，C2DM action 改成
@@ -21,6 +23,8 @@ internal class GmsRules(
     private val selfPackage: String,
     val target: String = MICROG_RE_PACKAGE,
     val pushStaysWithGms: Boolean = true,
+    /** 替代品是否宣告了這個 action；hook 端向 PackageManager 查詢。 */
+    private val declares: (String) -> Boolean = { true },
 ) {
     private val renamesNamespace = target.endsWith(VENDOR_NAMESPACE_SUFFIX)
     private val targetActionPrefix = "$target."
@@ -42,7 +46,8 @@ internal class GmsRules(
     fun redirectAction(action: String?): String? = when {
         action == null || !renamesNamespace || isChooseAccountAction(action) || isKeptPushAction(action) -> null
         action.startsWith(C2DM_PREFIX) -> targetC2dmPrefix + action.substring(C2DM_PREFIX.length)
-        action.startsWith(GMS_ACTION_PREFIX) -> targetActionPrefix + action.substring(GMS_ACTION_PREFIX.length)
+        action.startsWith(GMS_ACTION_PREFIX) ->
+            (targetActionPrefix + action.substring(GMS_ACTION_PREFIX.length)).takeIf(declares)
         else -> null
     }
 

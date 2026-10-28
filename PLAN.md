@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | 1 | Xposed 模組骨架 | `compileOnly` libxposed API 102；`META-INF/xposed/`：`java_init.list`、`module.prop`（`staticScope=false`），不放 `scope.list`；無設定頁 | 通用模組，作用域由使用者在 LSPatch 為各 app 勾選 | 完成 |
 | 2 | `minSdk = 29` | — | `onPackageLoaded` 標註 `@RequiresApi(Q)`，導向必須在這個時間點啟動 | 完成 |
-| 3 | 規則集中在 `GmsRules` | 純字串函式：package、authority、action 改寫與還原；推播判定；`CHOOSE_ACCOUNT`；self-targeted；chimera action 解析；Google ID 憑證類型互換 | 不依賴 Android 執行環境，可用 JVM 單元測試覆蓋 | 完成，17 個測試 |
+| 3 | 規則集中在 `GmsRules` | 純字串函式：package、authority、action 改寫與還原（action 只在替代品宣告了改名後的名稱時才改，由 hook 端注入的查詢決定）；推播判定；`CHOOSE_ACCOUNT`；self-targeted；chimera action 解析；Google ID 憑證類型互換 | 不依賴 Android 執行環境，可用 JVM 單元測試覆蓋 | 完成，18 個測試 |
 | 4 | 啟動時機與條件 | `onPackageLoaded`（只處理 `isFirstPackage`）裝框架 hook；向 `IPackageManager` 查 app 要求的權限，有 `<vendor>.android.c2dm.permission.RECEIVE` 就以 `<vendor>.android.gms` 為目標、推播交給它，否則目標為 MicroG RE、推播留 GMS；目標看不到就不裝。需要 app class 的 hook 放在 `onPackageReady` | `AppComponentFactory` 建立前就要攔到 GMS intent；這時沒有 `Context`。LSPatch 在 app process 內把 patch 版 apk 的讀取轉到原始 apk，讀不到 `config.json`，系統的權限紀錄不受影響 | 完成，智生活實測 |
 | 5 | `Intent` 建構子與 setter 的導向 | `setPackage`、`setAction`、`setComponent`、`setClass`、`setClassName`、`readFromParcel`、所有建構子；`ContextWrapper.startActivity`、`Activity.startActivityForResult`；`ContentResolver` 的 `acquire*`（略過 abstract）與 `call`。例外直接寫 `mAction`、`mPackage`、`mComponent` 欄位 | 移植自 LSPatch `74a7883` 的 `GmsRedirector`；直接寫欄位避免再次觸發 hook | 完成 |
 | 6 | 框架出口的導向 | `ContextImpl.bindServiceCommon`、`startServiceCommon`、`Instrumentation.execStartActivity(ies)`，送出前完整改寫一次 | LINE 的 GMS bind 沒經過 #5 的 hook（可能是 AOT inline，未證實），出口一定會經過 | 完成，LINE 實測 |
