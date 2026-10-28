@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">MicroG Login</string>
+    <string name="xposed_description">重新簽名的 app 改用 MicroG RE 登入 Google，推播仍走 Google Play 服務</string>
 </resources>

@@ -10,12 +10,11 @@ android {
 
     defaultConfig {
         applicationId = "com.xaxaxax.microglogin"
-        minSdk = 23
+        // onPackageLoaded 需要 Android 10，導向必須在 AppComponentFactory 建立前啟動
+        minSdk = 29
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -32,10 +31,6 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.material)
+    compileOnly(libs.libxposed.api)
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.junit)
 }
