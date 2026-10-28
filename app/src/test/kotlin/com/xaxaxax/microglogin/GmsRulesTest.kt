@@ -71,6 +71,21 @@ class GmsRulesTest {
     }
 
     @Test
+    fun `chimera bound service intents unwrap to their action`() {
+        val inner = "com.google.android.gms.identitycredentials.service.START"
+        assertEquals(inner, rules.unwrapChimeraAction(CHIMERA, "com.google.android.gms", "chimera-action", inner))
+    }
+
+    @Test
+    fun `push, foreign and plain intents are not unwrapped`() {
+        assertNull(rules.unwrapChimeraAction(CHIMERA, "com.google.android.gms", "chimera-action", "com.google.android.c2dm.intent.REGISTER"))
+        assertNull(rules.unwrapChimeraAction(CHIMERA, "com.example.app", "chimera-action", "com.google.android.gms.x.START"))
+        assertNull(rules.unwrapChimeraAction(CHIMERA, "com.google.android.gms", "content", "com.google.android.gms.x.START"))
+        assertNull(rules.unwrapChimeraAction("com.google.android.gms.x.START", "com.google.android.gms", null, null))
+        assertNull(rules.unwrapChimeraAction(CHIMERA, "com.google.android.gms", "chimera-action", ""))
+    }
+
+    @Test
     fun `push actions are recognised`() {
         assertTrue(rules.isPushAction("com.google.android.c2dm.intent.REGISTER"))
         assertTrue(rules.isPushAction("com.google.iid.TOKEN_REQUEST"))
@@ -96,5 +111,6 @@ class GmsRulesTest {
 
     private companion object {
         const val MICROG_RE = GmsRules.MICROG_RE_PACKAGE
+        const val CHIMERA = "com.google.android.chimera.BoundService.START"
     }
 }

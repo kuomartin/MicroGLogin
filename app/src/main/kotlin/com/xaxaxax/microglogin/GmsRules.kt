@@ -38,6 +38,16 @@ internal class GmsRules(private val selfPackage: String) {
         return GMS_ACTION_PREFIX + action.substring(MICROG_RE_ACTION_PREFIX.length)
     }
 
+    /**
+     * 新版 Play 服務函式庫先向 Google Play 服務的 chimera provider 查到實作的 component，再以
+     * `com.google.android.chimera.BoundService.START` 加上 `chimera-action:<原本的 action>` 直接綁定它。
+     * MicroG RE 沒有這些 component，所以要拆回原本的 action；推播與非 GMS 的 intent 回傳 null，維持原樣。
+     */
+    fun unwrapChimeraAction(action: String?, componentPackage: String?, scheme: String?, ssp: String?): String? {
+        if (action != CHIMERA_BOUND_SERVICE || componentPackage != GMS_PACKAGE || scheme != CHIMERA_SCHEME) return null
+        return ssp?.takeIf { it.isNotEmpty() && !isPushAction(it) }
+    }
+
     fun isPushAction(action: String?): Boolean =
         action != null && PUSH_ACTION_PREFIXES.any { action.startsWith(it) }
 
@@ -54,6 +64,8 @@ internal class GmsRules(private val selfPackage: String) {
         private const val CHIMERA_AUTHORITY = "$GMS_PACKAGE.chimera"
         private const val GMS_ACTION_PREFIX = "$GMS_PACKAGE."
         private const val MICROG_RE_ACTION_PREFIX = "$MICROG_RE_PACKAGE."
+        private const val CHIMERA_BOUND_SERVICE = "com.google.android.chimera.BoundService.START"
+        private const val CHIMERA_SCHEME = "chimera-action"
         private const val CHOOSE_ACCOUNT = "common.account.CHOOSE_ACCOUNT"
         private val PUSH_ACTION_PREFIXES = listOf("com.google.android.c2dm.", "com.google.iid.")
     }

@@ -1,6 +1,7 @@
 package com.xaxaxax.microglogin
 
 import android.app.Activity
+import android.app.Instrumentation
 import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.ContextWrapper
@@ -24,6 +25,7 @@ internal class GmsRedirector(private val xposed: XposedInterface, private val ru
     private val actionField = Intent::class.java.getDeclaredField("mAction").apply { isAccessible = true }
     private val packageField = Intent::class.java.getDeclaredField("mPackage").apply { isAccessible = true }
     private val componentField = Intent::class.java.getDeclaredField("mComponent").apply { isAccessible = true }
+    private val dataField = Intent::class.java.getDeclaredField("mData").apply { isAccessible = true }
 
     fun install() {
         hookSetPackage()
@@ -32,6 +34,7 @@ internal class GmsRedirector(private val xposed: XposedInterface, private val ru
         hookSetClass()
         hookConstructors()
         hookActivityStart()
+        hookEgress()
         hookContentResolver()
     }
 
@@ -112,6 +115,51 @@ internal class GmsRedirector(private val xposed: XposedInterface, private val ru
         }
         hookAll(ContextWrapper::class.java, "startActivity", hooker)
         hookAll(Activity::class.java, "startActivityForResult", hooker)
+    }
+
+    /**
+     * 框架內部送出 intent 的地方。app 經 AOT 編譯後，`Intent` 的建構子與 setter 可能被 inline 進 app 的程式碼，
+     * 上面的 hook 就攔不到（LINE 實測：identitycredentials、phenotype 直接綁到 Google Play 服務）。
+     * `bindService`、`startService`、`startActivity` 最後都經過這裡，在送出前再完整改寫一次。
+     * 新版 Play 服務函式庫綁定的 chimera component 也在這裡拆回原本的 action（見 [GmsRules.unwrapChimeraAction]）。
+     */
+    private fun hookEgress() {
+        val hooker = XposedInterface.Hooker { chain ->
+            for (arg in chain.args) {
+                when (arg) {
+                    is Intent -> redirect(arg)
+                    is Array<*> -> arg.forEach { if (it is Intent) redirect(it) }
+                }
+            }
+            chain.proceed()
+        }
+        val contextImpl = Class.forName("android.app.ContextImpl")
+        hookAll(contextImpl, "bindServiceCommon", hooker)
+        hookAll(contextImpl, "startServiceCommon", hooker)
+        hookAll(Instrumentation::class.java, "execStartActivity", hooker)
+        hookAll(Instrumentation::class.java, "execStartActivities", hooker)
+    }
+
+    /** 不經 setter，直接改寫欄位，套用所有規則。 */
+    private fun redirect(intent: Intent) {
+        val before = intent.toUri(0)
+        val data = intent.data
+        rules.unwrapChimeraAction(intent.action, intent.component?.packageName, data?.scheme, data?.schemeSpecificPart)?.let {
+            actionField.set(intent, it)
+            dataField.set(intent, null)
+            componentField.set(intent, null)
+            packageField.set(intent, GmsRules.GMS_PACKAGE)
+        }
+        intent.component?.let { cn ->
+            rules.redirectPackage(cn.packageName)?.let { componentField.set(intent, ComponentName(it, cn.className)) }
+        }
+        rules.redirectPackage(intent.`package`)?.let { packageField.set(intent, it) }
+        if (!rules.isSelfTargeted(intent.`package`, intent.component?.packageName)) {
+            rules.redirectAction(intent.action)?.let { actionField.set(intent, it) }
+        }
+        fixUp(intent)
+        val after = intent.toUri(0)
+        if (after != before) Log.d("egress $before -> $after")
     }
 
     private fun hookContentResolver() {
