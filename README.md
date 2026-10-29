@@ -59,6 +59,7 @@ intent 的改寫在兩處進行：`Intent` 的建構子與 setter，以及框架
 - Firebase API key 若設了 Android 應用程式限制，app 拿 FCM token 時會被擋（`API_KEY_ANDROID_APP_BLOCKED`）。在 LSPatch 開啟簽章繞過（level 1 以上）就能解決。
 - NPatch 不會寫入 `SPOOFED_PACKAGE_SIGNATURE`，在 NPatch 下仍然無法登入。
 - LSPatch 的「注入 dex」選項會讓本模組載入失敗（`NoSuchMethodError: kotlin.Pair.component1()`）：注入後 loader 拿到的是 app 裡被 R8 刪減過的 Kotlin 標準函式庫。LINE 實測如此，patch 時關閉注入 dex 即可。
+- MicroG RE 7.2.2 要求同意 OAuth 權限時（例如 LINE 的 Google 雲端硬碟備份），`UnpackingRedirectActivity` 在開出同意對話框後閃退（主題不是 AppCompat），按允許或拒絕都會再開一次，token 回不到 app。在 MicroG RE 的設定中先核准該 app 即可避開。
 - app 自己的簽章檢查與伺服器端完整性檢查，不在本模組範圍內。
 
 ## 建置
@@ -72,7 +73,13 @@ intent 的改寫在兩處進行：`Intent` 的建構子與 setter，以及框架
 ## 除錯
 
 ```bash
+adb logcat -c
+```
+
+```bash
 adb logcat -s MicroGLogin
 ```
+
+先清除再開始記錄，然後才重現問題。logcat 的 main buffer 預設只有 256 KiB，系統 log 多的裝置上只留得住最後幾分鐘，app 啟動時的記錄很快就被擠掉。
 
 啟動時會記錄框架名稱與版本、MicroG RE 是否可見、各組 hook 是否安裝成功。之後每次改寫都會記一行 debug log。
