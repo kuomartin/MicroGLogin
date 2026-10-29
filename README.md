@@ -38,6 +38,7 @@ patch 後的 app 改用 patch 工具的金鑰簽名。Google Play 服務在自�
 | `com.google.android.gms.chimera`、`com.google.android.gms.fonts` provider | 留在 Google Play 服務（MicroG 沒有 Dynamite 模組；字型與簽章無關，導過去會 authority 不符） |
 | 指向 app 自己元件的 intent（例如 `SignInHubActivity`） | 不改 action |
 | Android 14 以上，Credential Manager 含 Google ID 選項的請求（`CredentialManager.getCredential`） | 模組在 app 內代接：以呼叫端 Activity 開啟替代品的 `ASSISTED_SIGNIN`（帶 SafeParcel 編碼的 `GoogleSignInOptions`、`GetSignInIntentRequest`），替代品顯示帳號對話框；結果在 `Activity.dispatchActivityResult` 收回，組成 `GetCredentialResponse`。同一請求裡的 passkey、密碼選項捨棄；不含 Google ID 的請求照常交給系統。理由：系統只把 Google ID 請求交給裝在 `/system` 的系統 provider，一般安裝的 MicroG RE 接不到（microg/GmsCore#3694） |
+| Android 14 以上，`CredentialManager.clearCredentialState` | 照常交給系統；失敗時改回報成功。理由：Google ID 由模組代接，系統沒有要清的 Google 狀態，失敗只代表裝置上沒有 credential provider（例如沒有 Google Play 服務的系統），而 LINE 不處理這個錯誤會閃退 |
 | Android 13 以下，Google ID 憑證類型 `com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL`（androidx 走 Play 服務的 identitycredentials） | 送往替代品時改成它認得的 `<vendor>.android.libraries...`，回傳時改回；MicroG RE 回傳的 Bundle 轉成 Android 14 以上 androidx 讀的 `GetCredentialResponse`／`GetCredentialException` |
 
 intent 的改寫在兩處進行：`Intent` 的建構子與 setter，以及框架送出前的 `ContextImpl.bindServiceCommon`、`startServiceCommon`、`Instrumentation.execStartActivity`。app 經 AOT 編譯後 setter 可能被 inline 而攔不到，送出前的改寫負責補上。

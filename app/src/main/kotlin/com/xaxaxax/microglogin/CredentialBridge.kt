@@ -4,6 +4,8 @@ import android.annotation.TargetApi
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.credentials.ClearCredentialStateException
+import android.credentials.ClearCredentialStateRequest
 import android.credentials.Credential
 import android.credentials.CredentialManager
 import android.credentials.GetCredentialException
@@ -26,6 +28,9 @@ import java.util.concurrent.Executor
  * Activity 開啟替代品的 `ASSISTED_SIGNIN`，帶 `GetSignInIntentRequest`，替代品就顯示帳號對話框
  * （`AuthSignInActivity`）；結果在 `Activity.dispatchActivityResult` 收回，組成 `GetCredentialResponse`。
  * 同一個請求裡的 passkey、密碼選項捨棄；不含 Google ID 的請求照常交給系統。
+ *
+ * `clearCredentialState` 照常交給系統，失敗時改回報成功：Google ID 由這裡代接，系統沒有要清的 Google 狀態，
+ * 失敗只代表裝置上沒有 provider（例如沒有 Google Play 服務的系統）。app 不一定處理這個錯誤，LINE 會因此閃退。
  */
 @TargetApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 internal class CredentialBridge(private val xposed: XposedInterface, private val target: String) {
@@ -66,6 +71,25 @@ internal class CredentialBridge(private val xposed: XposedInterface, private val
             }
             start(activity, params, Pending(executor, callback, chain.getArg(2) as CancellationSignal?))
             null
+        }
+
+        val clearCredentialState = CredentialManager::class.java.getMethod(
+            "clearCredentialState", ClearCredentialStateRequest::class.java,
+            CancellationSignal::class.java, Executor::class.java, OutcomeReceiver::class.java,
+        )
+        xposed.hook(clearCredentialState).intercept { chain ->
+            @Suppress("UNCHECKED_CAST")
+            val callback = chain.getArg(3) as OutcomeReceiver<Void?, ClearCredentialStateException>
+            val args = chain.args.toTypedArray()
+            args[3] = object : OutcomeReceiver<Void?, ClearCredentialStateException> {
+                override fun onResult(result: Void?) = callback.onResult(result)
+
+                override fun onError(error: ClearCredentialStateException) {
+                    Log.i("clearCredentialState failed (${error.type}), reported as cleared")
+                    callback.onResult(null)
+                }
+            }
+            chain.proceed(args)
         }
 
         // 呼叫端 Activity 收到替代品的結果時接手，不交給 app：app 不認得這個 request code

@@ -29,6 +29,7 @@
 | 12 | 日誌 | tag `MicroGLogin`；啟動時記錄框架、各組 hook 結果；每次改寫記一行 debug | — | 完成 |
 | 13 | README | 分工、安裝、行為對照、支援的登入方式、限制 | — | 完成 |
 | 14 | 帳號選擇器只列替代品的帳號 | `Instrumentation.execStartActivity` 送出 `CHOOSE_ACCOUNT` 前，`allowableAccountTypes`（沒有則視為 `com.google`）、`allowableAccounts`、`selectedAccount` 的 `com.google` 換成替代品的帳號類型，並記下 request code；`Activity.dispatchActivityResult` 收到該結果時把 `accountType` 改回 `com.google`。帳號類型查詢與 #9 共用 | Google Play 服務的帳號在重新簽名的 app 拿不到 token；#9 改用替代品的同名帳號，替代品沒有就失敗（Pixel 10 有 3 個 `com.google`、1 個 `app.revanced` 帳號，選擇器列出前 3 個）。沒有 Google Play 服務的裝置上清單只剩新增 `com.google` 帳號 | 完成，Pixel 10 LINE 實測 |
+| 15 | `clearCredentialState` 失敗時回報成功 | hook 框架 `CredentialManager.clearCredentialState`，照常交給系統，把 callback 的 `onError` 改成 `onResult(null)` 並記錄 | 沒有 credential provider 的系統（AOSP GSI）回錯誤；LINE 在 Google 登入後呼叫它且不處理錯誤而閃退。Google ID 由 #10 代接，系統沒有要清的 Google 狀態。其他 API 的錯誤不吞：`getCredential`、`createCredential` 要回傳資料，假裝成功會讓 app 拿到錯的結果 | 完成，Pixel 7a AOSP GSI LINE 實測 |
 
 ## 實機驗證結果
 
@@ -40,6 +41,7 @@
 | Pixel 10，Android 16，LSPatch `feat/gms-keep-push`（本機版） | 各類登入 API | MicroG RE 的畫面 | 使用者實測皆正常 |
 | SM-A217F，Android 12，MicroG RE 7.3.0-dev.2：LINE、Dcard 等 | Android 13 以下：androidx 走 Play 服務實作 | MicroG RE 的畫面 | 使用者實測登入皆正常；LINE 的憑證類型雙向轉換（#11）有生效 |
 | Pixel 10，Android 16，MicroG RE 7.2.2：LINE 的 Google 雲端硬碟備份（#14） | `CHOOSE_ACCOUNT` + `GoogleAuthUtil` | 系統帳號選擇器；MicroG RE 的權限同意畫面 | 選擇器只列 1 個 `app.revanced` 帳號，結果改回 `com.google`，備份成功。MicroG RE 端未先核准 LINE 時，同意畫面閃退迴圈（見 README 限制） |
+| Pixel 7a，Android 17 AOSP GSI（`DP11.261002.005`，沒有 Google Play 服務），MicroG RE 7.2.2：LINE 26.14.0 | androidx Credential Manager + `GetSignInWithGoogleOption` | MicroG RE 沒有帳號時先開登入畫面，登入後顯示帳號對話框（模組代接） | 取得 ID token；之後 LINE 呼叫 `clearCredentialState`，修正前閃退，修正後（#15）正常 |
 
 ## 未驗證的前提與待辦
 
