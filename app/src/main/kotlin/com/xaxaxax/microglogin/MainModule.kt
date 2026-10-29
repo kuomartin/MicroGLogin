@@ -37,7 +37,9 @@ class MainModule : XposedModule() {
         // 每組 hook 各自隔離：其中一組失敗時，其他組照常生效
         val rules = GmsRules(param.packageName, target, pushStaysWithGms = configured == null, declares = GmsReplacement.declarer(target)).also { this.rules = it }
         install("GmsRedirect") { GmsRedirector(this, rules).install() }
-        install("AccountManager") { AccountManagerHooks(target).install(this) }
+        val accountType = TargetAccountType(target)
+        install("AccountManager") { AccountManagerHooks(target, accountType).install(this) }
+        install("AccountPicker") { AccountPickerHooks(rules, accountType).install(this) }
         // Android 14 以上的 Credential Manager 由模組代接；13 以下沒有框架服務，androidx 走 Play 服務實作
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             install("CredentialBridge") { CredentialBridge(this, target).install() }

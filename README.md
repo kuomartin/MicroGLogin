@@ -33,7 +33,7 @@ patch 後的 app 改用 patch 工具的金鑰簽名。Google Play 服務在自�
 | `com.google.android.gms.*` action | 替代品宣告了改名後的 `<vendor>.android.gms.*` 就改名，否則保留 Google 原名（MicroG RE 7.2.1 大多只有改名後的名稱，少數如 `ads.identifier.service.START` 只有原名）；向 PackageManager 查詢，每個 action 快取一次 |
 | 推播：`com.google.android.c2dm.*`、`com.google.iid.*`、`com.google.android.gms.cloudmessaging.*` | C2DM 已改名：交給替代品，C2DM action 改為 `<vendor>.android.c2dm.*`（與 LSPatch loader 相同）。未改名：留在 Google Play 服務（FCM 不比對呼叫端簽章） |
 | 新版 Play 服務函式庫的 chimera bind（`BoundService.START` + `chimera-action:<action>`，直接指定 GMS 的 component） | 拆回原本的 action 再導向替代品（替代品沒有這些 component）；留在 Google Play 服務的推播照原樣綁定 |
-| `common.account.CHOOSE_ACCOUNT` | 系統帳號選擇器 |
+| `common.account.CHOOSE_ACCOUNT` | 系統帳號選擇器，只列替代品的帳號（`allowableAccountTypes` 等 extra 的 `com.google` 換成替代品的帳號類型）；選擇結果的帳號類型改回 `com.google`。理由：Google Play 服務的帳號在重新簽名的 app 拿不到 token，替代品沒有同名帳號就失敗 |
 | `AccountManager.getAuthToken`、`blockingGetAuthToken`，帳號類型 `com.google` | 改用 MicroG RE 的同名帳號（類型由 MicroG RE 的 authenticator 決定），否則 Google Play 服務會以 `UNREGISTERED_ON_API_CONSOLE` 拒絕 |
 | `com.google.android.gms.chimera`、`com.google.android.gms.fonts` provider | 留在 Google Play 服務（MicroG 沒有 Dynamite 模組；字型與簽章無關，導過去會 authority 不符） |
 | 指向 app 自己元件的 intent（例如 `SignInHubActivity`） | 不改 action |

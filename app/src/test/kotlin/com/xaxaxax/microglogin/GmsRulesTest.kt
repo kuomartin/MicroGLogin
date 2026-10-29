@@ -1,5 +1,6 @@
 package com.xaxaxax.microglogin
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -176,6 +177,14 @@ class GmsRulesTest {
         val partial = GmsRules(selfPackage = "com.example.app", declares = { it in declared })
         assertEquals("$MICROG_RE.auth.GOOGLE_SIGN_IN", partial.redirectAction("com.google.android.gms.auth.GOOGLE_SIGN_IN"))
         assertNull(partial.redirectAction("com.google.android.gms.ads.identifier.service.START"))
+    }
+
+    @Test
+    fun `account picker lists the replacement's accounts instead of Google's`() {
+        assertArrayEquals(arrayOf("app.revanced"), GmsRules.pickerAccountTypes(arrayOf("com.google"), "app.revanced"))
+        assertArrayEquals(arrayOf("app.revanced"), GmsRules.pickerAccountTypes(null, "app.revanced"))
+        assertArrayEquals(arrayOf("app.revanced"), GmsRules.pickerAccountTypes(arrayOf("com.google", "app.revanced"), "app.revanced"))
+        assertArrayEquals(arrayOf("app.revanced", "com.example"), GmsRules.pickerAccountTypes(arrayOf("com.google", "com.example"), "app.revanced"))
     }
 
     private companion object {

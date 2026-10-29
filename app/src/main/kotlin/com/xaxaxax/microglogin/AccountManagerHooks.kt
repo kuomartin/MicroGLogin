@@ -14,15 +14,12 @@ import io.github.libxposed.api.XposedInterface
  *
  * `getAuthToken` 的每個多載與 `blockingGetAuthToken` 第一個參數都是帳號。
  */
-internal class AccountManagerHooks(private val target: String) {
-
-    @Volatile
-    private var targetAccountType: String? = null
+internal class AccountManagerHooks(private val target: String, private val accountType: TargetAccountType) {
 
     fun install(xposed: XposedInterface) {
         val hooker = XposedInterface.Hooker { chain ->
             val account = chain.args.firstOrNull() as? Account
-            val type = if (account?.type == GOOGLE_ACCOUNT_TYPE) targetAccountType(chain.thisObject as AccountManager) else null
+            val type = if (account?.type == GmsRules.GOOGLE_ACCOUNT_TYPE) accountType.get(chain.thisObject as AccountManager) else null
             if (account == null || type == null) return@Hooker chain.proceed()
             Log.d("asking $target account type $type for an auth token")
             val args = chain.args.toTypedArray()
@@ -34,15 +31,5 @@ internal class AccountManagerHooks(private val target: String) {
                 xposed.hook(m).intercept(hooker)
             }
         }
-    }
-
-    /** 替代品的 authenticator 註冊的帳號類型；沒有註冊則回傳 null。 */
-    private fun targetAccountType(am: AccountManager): String? =
-        targetAccountType ?: am.authenticatorTypes
-            .firstOrNull { it.packageName == target }?.type
-            ?.also { targetAccountType = it }
-
-    private companion object {
-        const val GOOGLE_ACCOUNT_TYPE = "com.google"
     }
 }

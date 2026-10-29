@@ -11,7 +11,7 @@ package com.xaxaxax.microglogin
  *   `com.google.iid.*`、`com.google.android.gms.cloudmessaging.*` 留給 Google Play 服務，FCM 不比對呼叫端簽章。
  *   為 false 時（patch 工具已把 manifest 的 C2DM 改名），推播與其他呼叫一樣交給替代品，C2DM action 改成
  *   `<vendor>.android.c2dm.*`，與 loader 的改寫相同；loader 的 setter hook 漏掉的 intent 由這裡在出口補上。
- * - `CHOOSE_ACCOUNT` 交給系統帳號選擇器。
+ * - `CHOOSE_ACCOUNT` 交給系統帳號選擇器，只列替代品的帳號（[pickerAccountTypes]）。
  * - `com.google.android.gms.chimera`：替代品沒有 Dynamite／Chimera 模組，導過去會造成 authority 不符。
  * - `com.google.android.gms.fonts`：可下載字型與簽章無關，替代品的字型 provider 回報的 authority 與請求不符而丟例外。
  * - 指向 app 自己的 intent 不改 action：Google 登入程式庫以 `GOOGLE_SIGN_IN` 開啟 app 內的
@@ -91,6 +91,17 @@ internal class GmsRules(
 
     companion object {
         const val GMS_PACKAGE = "com.google.android.gms"
+        const val GOOGLE_ACCOUNT_TYPE = "com.google"
+
+        /**
+         * 系統帳號選擇器允許的帳號類型：`com.google` 換成替代品的類型，其他類型保留。
+         * 沒有指定時視為 `com.google`，`CHOOSE_ACCOUNT` 本來就是選 Google 帳號。
+         */
+        fun pickerAccountTypes(types: Array<String>?, targetType: String): Array<String> =
+            (types ?: arrayOf(GOOGLE_ACCOUNT_TYPE))
+                .map { if (it == GOOGLE_ACCOUNT_TYPE) targetType else it }
+                .distinct()
+                .toTypedArray()
 
         /** `<vendor>.android.c2dm.permission.RECEIVE` 對應的替代品 `<vendor>.android.gms`；Google 原名或其他權限回傳 null。 */
         fun c2dmPermissionTarget(permission: String): String? {
